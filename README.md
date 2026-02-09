@@ -5,7 +5,11 @@ This repository contains the code for recreating the experiments in the Wildfire
 - [Link to main paper](https://openreview.net/pdf?id=RgdGkPRQ03)
 - [Link to supplementary material](https://openreview.net/attachment?id=RgdGkPRQ03&name=supplementary_material)
 
-**Note: After publishing the paper, we discovered a bug in the dataset class.** Based on initial experiments, the corrected dataset class leads to slightly higher performance, but the trends in the results are basically the same as those reported in the paper. The bug was fixed in commit `ab3c8f35c5ec8c52c306a4488eaeb71a5a13d0de`, in case you want to roll-back the change to compare with the results in the paper.
+## Updates 
+- After publishing the paper, we discovered a bug in the dataset class. Based on initial experiments, the corrected dataset class leads to slightly higher performance, but the trends in the results are basically the same as those reported in the paper. The bug was fixed in commit `ab3c8f35c5ec8c52c306a4488eaeb71a5a13d0de`, in case you want to roll-back the change to compare with the results in the paper.
+
+- **Feb 2026:** An observant researcher, who kindly reached out to me, pointed out that when dealing with angle features, the current code only transforms the features via sin, but should use both sin and cos, to not lose information. This happens [here](https://github.com/SebastianGer/WildfireSpreadTS/blob/main/src/dataloader/FireSpreadDataset.py#L339). I'm currently too occupied with deadlines in other projects to make sure that nothing breaks when I fix this, so if you're working with these features, be aware of this issue. 
+
 
 ## Setup the environment
 
