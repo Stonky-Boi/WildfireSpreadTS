@@ -1,0 +1,16 @@
+# cfgs/Fusion/level1.yaml
+seed_everything: 0
+optimizer: 
+  class_path: torch.optim.AdamW
+  init_args:
+    lr: 0.001
+model:
+  class_path: models.FusionBaseline.FusionBaseline
+  init_args:
+    n_channels: 40
+    flatten_temporal_dimension: false
+    pos_class_weight: 236 
+    loss_function: "Dice"
+    hidden_dim: 64
+do_train: true
+do_test: true

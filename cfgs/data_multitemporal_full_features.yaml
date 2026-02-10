@@ -1,0 +1,9 @@
+data_dir: DATA_DIR_PATH  # You will override this via CLI
+batch_size: 32           # Reduced from 64 to 32 to fit the extra time steps in GPU memory
+n_leading_observations: 5
+crop_side_length: 128
+load_from_hdf5: true
+num_workers: 8
+remove_duplicate_features: false
+features_to_keep: null
+n_leading_observations_test_adjustment: 5
