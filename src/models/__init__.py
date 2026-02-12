@@ -4,3 +4,4 @@ from .LogisticRegression import LogisticRegression
 from .SMPModel import SMPModel
 from .UTAELightning import UTAELightning
 from .FusionBaseline import FusionBaseline
+from .SwinFireModel import SwinFireModel
