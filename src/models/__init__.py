@@ -5,3 +5,4 @@ from .SMPModel import SMPModel
 from .UTAELightning import UTAELightning
 from .FusionBaseline import FusionBaseline
 from .SwinFireModel import SwinFireModel
+from .TemporalSwinModel import TemporalSwinModel

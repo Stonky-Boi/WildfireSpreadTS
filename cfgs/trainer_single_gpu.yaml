@@ -16,7 +16,7 @@ callbacks:
       monitor: val_loss
       mode: min
 fast_dev_run: false
-max_epochs: 500
+max_epochs: 200
 min_epochs: -1
 max_steps: -1
 min_steps: -1
