@@ -6,3 +6,4 @@ from .UTAELightning import UTAELightning
 from .FusionBaseline import FusionBaseline
 from .SwinFireModel import SwinFireModel
 from .TemporalSwinModel import TemporalSwinModel
+from .MambaFireModel import MambaFireModel

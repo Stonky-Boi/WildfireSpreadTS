@@ -1,4 +1,4 @@
-#python
+# python
 h5py
 numpy
 pandas
@@ -19,3 +19,5 @@ opencv-python
 scikit-learn
 segmentation-models-pytorch
 jsonargparse[signatures]
+# requires nvcc >= 11.6
+# mamba-ssm
