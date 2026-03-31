@@ -7,3 +7,4 @@ from .FusionBaseline import FusionBaseline
 from .SwinFireModel import SwinFireModel
 from .TemporalSwinModel import TemporalSwinModel
 from .MambaFireModel import MambaFireModel
+from .SpatiotemporalMambaModel import SpatiotemporalMambaModel
