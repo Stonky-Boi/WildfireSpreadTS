@@ -12,6 +12,7 @@ from segmentation_models_pytorch.losses import (DiceLoss, JaccardLoss,
                                                 LovaszLoss)
 from torchvision.ops import sigmoid_focal_loss
 
+from losses.PhysicsAwareLoss import PhysicsAwareLoss
 
 class BaseModel(pl.LightningModule, ABC):
     """Base model class for all models in this project."""
@@ -21,7 +22,7 @@ class BaseModel(pl.LightningModule, ABC):
         n_channels: int,
         flatten_temporal_dimension: bool,
         pos_class_weight: float,
-        loss_function: Literal["BCE", "Focal", "Lovasz", "Jaccard", "Dice"],
+        loss_function: Literal["BCE", "Focal", "Lovasz", "Jaccard", "Dice", "PhysicsAware"],
         use_doy: bool = False,
         required_img_size: Optional[List[int]] = None,
         *args: Any,
@@ -52,12 +53,12 @@ class BaseModel(pl.LightningModule, ABC):
         # Buffer to store predictions on CPU RAM to avoid GPU OOM
         self.test_outputs_buffer = []
 
-    def forward(self, x, doys=None):
+    def forward(self, x: torch.Tensor, doys: Optional[torch.Tensor] = None) -> torch.Tensor:
         if self.hparams.flatten_temporal_dimension and len(x.shape) == 5:
             x = x.flatten(start_dim=1, end_dim=2)
         return self.model(x)
 
-    def get_pred_and_gt(self, batch):
+    def get_pred_and_gt(self, batch: Any) -> tuple[torch.Tensor, torch.Tensor]:
         if self.hparams.use_doy:
             x, y, doys = batch
         else:
@@ -98,25 +99,30 @@ class BaseModel(pl.LightningModule, ABC):
         y_hat = self(x, doys).squeeze(1)
         return y_hat, y
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch: Any, batch_idx: int) -> torch.Tensor:
         y_hat, y = self.get_pred_and_gt(batch)
-        loss = self.compute_loss(y_hat, y)
+        x = batch[0] # Extract input tensor for physics calculations
+        loss = self.compute_loss(y_hat, y, x)
+        
         self.train_f1(y_hat, y)
         self.log("train_loss", loss.item(), on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
         self.log("train_f1", self.train_f1, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         return loss
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch: Any, batch_idx: int) -> torch.Tensor:
         y_hat, y = self.get_pred_and_gt(batch)
-        loss = self.compute_loss(y_hat, y)
+        x = batch[0]
+        loss = self.compute_loss(y_hat, y, x)
+        
         self.val_f1(y_hat, y)
         self.log("val_loss", loss.item(), on_step=False, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
         self.log("val_f1", self.val_f1, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         return loss
 
-    def test_step(self, batch, batch_idx):
+    def test_step(self, batch: Any, batch_idx: int) -> None:
         y_hat, y = self.get_pred_and_gt(batch)
-        loss = self.compute_loss(y_hat, y)
+        x = batch[0]
+        loss = self.compute_loss(y_hat, y, x)
         
         # 1. Update lightweight metrics (Inputs are on GPU, Metric is on GPU -> OK)
         self.test_f1(y_hat, y)
@@ -181,14 +187,16 @@ class BaseModel(pl.LightningModule, ABC):
         except Exception as e:
             print(f"Warning: Failed to compute global heavy metrics: {e}")
 
-    def predict_step(self, batch, batch_idx, dataloader_idx=0):
+    def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         x, y = batch
         x_af = x[:, :, -1, :, :]
         y_hat = self(x).squeeze(1)
         return x_af, y, y_hat
 
-    def get_loss(self):
-        if self.hparams.loss_function == "BCE":
+    def get_loss(self) -> nn.Module:
+        if self.hparams.loss_function == "PhysicsAware":
+            return PhysicsAwareLoss(beta=1.0, lambda_focal=0.3, lambda_dice=0.7)
+        elif self.hparams.loss_function == "BCE":
             return nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([self.hparams.pos_class_weight], device=self.device))
         elif self.hparams.loss_function == "Focal":
             return sigmoid_focal_loss
@@ -198,9 +206,30 @@ class BaseModel(pl.LightningModule, ABC):
             return JaccardLoss(mode="binary")
         elif self.hparams.loss_function == "Dice":
             return DiceLoss(mode="binary")
+        else:
+            raise ValueError(f"Unsupported loss function: {self.hparams.loss_function}")
 
-    def compute_loss(self, y_hat, y):
-        if self.hparams.loss_function == "Focal":
+    def compute_loss(self, y_hat: torch.Tensor, y: torch.Tensor, x: Optional[torch.Tensor] = None) -> torch.Tensor:
+        if isinstance(self.loss, PhysicsAwareLoss):
+            if x is None:
+                raise ValueError("Input tensor 'x' must be provided for PhysicsAwareLoss to extract wind vectors.")
+            
+            # Extract wind speed and direction from the most recent day (T-1)
+            # Dataloader shape: (Batch, Time, Channels, Height, Width)
+            # Index -1: Last Timestep, Index 6: Wind Speed, Index 7: Wind Direction
+            wind_speed = x[:, -1, 6, :, :].unsqueeze(1)
+            wind_direction = x[:, -1, 7, :, :].unsqueeze(1)
+            
+            # Convert degrees to radians
+            wind_dir_rad = torch.deg2rad(wind_direction)
+            
+            # Calculate U and V components (Negative for 'blowing towards')
+            wind_u = -wind_speed * torch.sin(wind_dir_rad)
+            wind_v = -wind_speed * torch.cos(wind_dir_rad)
+            
+            return self.loss(y_hat, y.float(), wind_u, wind_v)
+            
+        elif self.hparams.loss_function == "Focal":
             return self.loss(y_hat, y.float(), alpha=1 - self.hparams.pos_class_weight, gamma=2, reduction="mean")
         else:
             return self.loss(y_hat, y.float())
