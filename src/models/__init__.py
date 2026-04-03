@@ -9,3 +9,4 @@ from .TemporalSwinModel import TemporalSwinModel
 from .MambaFireModel import MambaFireModel
 from .SpatiotemporalMambaModel import SpatiotemporalMambaModel
 from .PhysicsFusionMambaModel import PhysicsFusionMambaModel
+from .PhysicalAttentionMambaModel import PhysicalAttentionMambaModel
